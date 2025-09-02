@@ -1,0 +1,84 @@
+trigger:
+  branches:
+    include:
+      - main
+
+variables:
+  nodeVersion: '20.x'
+  appName: 'app-hello-nest-tlv-devops'  # <-- hier deinen Web App Namen eintragen
+  vmImage: 'ubuntu-latest'
+
+pool:
+  vmImage: $(vmImage)
+
+stages:
+# ---------- BUILD ----------
+- stage: Build
+  displayName: Build & Package
+  jobs:
+  - job: build
+    displayName: Install, Test, Build, Package
+    steps:
+    - task: NodeTool@0
+      inputs:
+        versionSpec: $(nodeVersion)
+      displayName: "Use Node.js $(nodeVersion)"
+
+    - script: |
+        npm ci
+        npm test
+        npm run build
+      displayName: "Install dev deps, Test, Build (tsc)"
+
+    # Produktionsmodules installieren (kleineres Artefakt, kein Dev-Kram)
+    - script: |
+        rm -rf node_modules
+        npm ci --omit=dev
+      displayName: "Install prod dependencies"
+
+    # Artefakt zusammenstellen: dist + node_modules + package.json
+    - task: CopyFiles@2
+      displayName: "Stage deploy content"
+      inputs:
+        SourceFolder: '$(System.DefaultWorkingDirectory)'
+        Contents: |
+          dist/**
+          node_modules/**/*
+          package.json
+        TargetFolder: '$(Build.ArtifactStagingDirectory)/site'
+
+    - task: ArchiveFiles@2
+      displayName: "Archive app"
+      inputs:
+        rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/site'
+        includeRootFolder: false
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
+        replaceExistingArchive: true
+
+    - task: PublishBuildArtifacts@1
+      displayName: "Publish artifact"
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+
+# ---------- DEPLOY ----------
+- stage: Deploy
+  displayName: Deploy to Azure Web App
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - deployment: deployWeb
+    displayName: "Deploy to $(appName)"
+    environment: "prod"
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: AzureWebApp@1
+            displayName: "Deploy ZIP to Azure Web App"
+            inputs:
+              azureSubscription: 'azure-sp-connection'
+              appName: '$(appName)'
+              package: '$(Pipeline.Workspace)/drop/app.zip'
