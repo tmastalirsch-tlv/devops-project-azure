@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 
 
+## [0.2.9](https://github.com/tmastalirsch-tlv/devops-project-azure/compare/v0.2.8...v0.2.9) (2025-09-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* Development workflow now requires git-flow usage
+
+### Features
+
+* implement git-flow workflow with comprehensive CI/CD integration ([c2a4787](https://github.com/tmastalirsch-tlv/devops-project-azure/commit/c2a4787796b96b671ea370e94fc2f4a53aabe59a))
+
 ## [0.2.8](https://github.com/tmastalirsch-tlv/devops-project-azure/compare/v0.2.7...v0.2.8) (2025-09-03)
 
 ## [0.2.7](https://github.com/tmastalirsch-tlv/devops-project-azure/compare/v0.2.6...v0.2.7) (2025-09-03)
