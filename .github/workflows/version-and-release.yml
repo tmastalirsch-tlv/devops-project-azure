@@ -6,18 +6,8 @@ on:
     tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
-  # Workflow dispatch for manual releases
+  # Workflow dispatch for automatic releases
   workflow_dispatch:
-    inputs:
-      increment:
-        description: 'Release type (patch, minor, major)'
-        required: true
-        default: 'patch'
-        type: choice
-        options:
-        - patch
-        - minor
-        - major
 
 permissions:
   contents: write
@@ -146,8 +136,20 @@ jobs:
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
     
+    - name: Determine release type based on commits
+      id: manual_release_type
+      run: |
+        # Check for BREAKING CHANGE or feat! in recent commits
+        if git log --format=%B -n 10 | grep -E "(BREAKING CHANGE|feat!|fix!)" > /dev/null; then
+          echo "increment=major" >> $GITHUB_OUTPUT
+        elif git log --format=%B -n 10 | grep "^feat" > /dev/null; then
+          echo "increment=minor" >> $GITHUB_OUTPUT
+        else
+          echo "increment=patch" >> $GITHUB_OUTPUT
+        fi
+    
     - name: Release with release-it (manual)
-      run: npx release-it --ci --increment ${{ github.event.inputs.increment }} --verbose
+      run: npx release-it --ci --increment ${{ steps.manual_release_type.outputs.increment }} --verbose
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
