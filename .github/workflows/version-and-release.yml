@@ -8,80 +8,62 @@ on:
 
 permissions:
   contents: write
-  pull-requests: read
-  issues: write
-  repository-projects: write
 
 jobs:
-  test:
+  ci:
     runs-on: ubuntu-latest
+    outputs:
+      should-release: ${{ steps.check.outputs.should-release }}
     
-    strategy:
-      matrix:
-        node-version: [20.x]
-
     steps:
     - uses: actions/checkout@v4
     
-    - name: Use Node.js ${{ matrix.node-version }}
+    - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ matrix.node-version }}
+        node-version: '20'
         cache: 'npm'
     
     - name: Install dependencies
       run: npm ci
     
-    - name: Run linter
-      run: npm run lint
+    - name: Lint & Test & Build
+      run: |
+        npm run lint
+        npm test
+        npm run build
     
-    - name: Run tests
-      run: npm test
-    
-    - name: Build application
-      run: npm run build
+    - name: Check if should release
+      id: check
+      run: echo "should-release=${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}" >> $GITHUB_OUTPUT
 
   release:
-    needs: test
+    needs: ci
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: needs.ci.outputs.should-release == 'true'
     
     steps:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
         token: ${{ secrets.GITHUB_TOKEN }}
-        persist-credentials: true
     
-    - name: Use Node.js 20.x
+    - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20.x'
+        node-version: '20'
         cache: 'npm'
     
     - name: Install dependencies
       run: npm ci
-      
-    - name: Install release-it
-      run: npm install -g release-it
     
-    - name: Configure Git
-      run: |
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
-    
-    - name: Release with release-it
-      run: release-it --ci --increment patch --verbose
+    - name: Release
+      run: npx release-it --ci
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Get version
-      id: version
-      run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
     
     - name: Trigger Docker Build
       uses: peter-evans/repository-dispatch@v3
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         event-type: docker-build
-        client-payload: '{"version": "${{ steps.version.outputs.version }}"}'
