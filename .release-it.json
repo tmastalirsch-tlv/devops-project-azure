@@ -10,8 +10,7 @@
   },
   "github": {
     "release": true,
-    "releaseName": "Release v${version}",
-    "releaseNotes": "## Docker Image\n\n```bash\ndocker pull ghcr.io/${repo.repository}:v${version}\ndocker pull ghcr.io/${repo.repository}:latest\n```\n\n## Changes\n\n${changelog}"
+    "releaseName": "Release v${version}"
   },
   "npm": {
     "publish": false
