@@ -9,7 +9,7 @@ variables:
   vmImage: 'ubuntu-latest'
 
 pool:
-  vmImage: $(vmImage)
+  name: 'Default'
 
 stages:
 # ---------- BUILD ----------
