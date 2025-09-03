@@ -10,10 +10,21 @@
   "github": {
     "release": true,
     "releaseName": "Release v${version}",
-    "releaseNotes": null
+    "releaseNotes": "## Docker Image\n\n```bash\ndocker pull ghcr.io/${repo.repository}:v${version}\ndocker pull ghcr.io/${repo.repository}:latest\n```\n\n## Changes\n\n${changelog}"
   },
   "npm": {
     "publish": false
+  },
+  "plugins": {
+    "@release-it/conventional-changelog": {
+      "preset": "conventionalcommits",
+      "infile": "CHANGELOG.md",
+      "header": "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n",
+      "context": {
+        "linkCompare": true,
+        "linkReferences": true
+      }
+    }
   },
   "hooks": {
     "before:init": ["npm run lint", "npm test"],
