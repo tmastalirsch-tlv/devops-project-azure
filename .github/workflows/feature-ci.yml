@@ -1,4 +1,4 @@
-name: Feature CI
+name: Feature & Branch CI
 
 on:
   push:
@@ -16,7 +16,8 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
+  pull-requests: write
+  issues: write
 
 jobs:
   test:
@@ -46,3 +47,178 @@ jobs:
     
     - name: Build application
       run: npm run build
+
+  # Branch type validation and guidance
+  branch-validation:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    continue-on-error: true
+    
+    steps:
+    - name: Validate branch naming and targets
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const branchName = context.payload.pull_request.head.ref;
+          const baseBranch = context.payload.pull_request.base.ref;
+          const prNumber = context.payload.pull_request.number;
+          
+          console.log(`Branch: ${branchName} → ${baseBranch}`);
+          
+          let isValid = true;
+          let guidance = [];
+          
+          // Validate branch naming conventions
+          if (branchName.startsWith('feature/')) {
+            if (baseBranch !== 'develop') {
+              isValid = false;
+              guidance.push('🚨 **Feature branches** should target `develop` branch');
+            } else {
+              guidance.push('✅ **Feature branch** correctly targets `develop`');
+            }
+          } else if (branchName.startsWith('bugfix/')) {
+            if (baseBranch !== 'develop') {
+              isValid = false;
+              guidance.push('🚨 **Bugfix branches** should target `develop` branch');
+            } else {
+              guidance.push('✅ **Bugfix branch** correctly targets `develop`');
+            }
+          } else if (branchName.startsWith('hotfix/')) {
+            if (baseBranch !== 'main') {
+              isValid = false;
+              guidance.push('🚨 **Hotfix branches** should target `main` branch');
+            } else {
+              guidance.push('✅ **Hotfix branch** correctly targets `main`');
+              guidance.push('⚠️  **Remember:** Hotfix will be automatically merged back to `develop` after release');
+            }
+          }
+          
+          // Add git flow guidance
+          guidance.push('');
+          guidance.push('## Git Flow Guidelines');
+          guidance.push('');
+          guidance.push('| Branch Type | Source | Target | Purpose |');
+          guidance.push('|-------------|--------|---------|----------|');
+          guidance.push('| `feature/*` | `develop` | `develop` | New features |');
+          guidance.push('| `bugfix/*` | `develop` | `develop` | Bug fixes in development |');
+          guidance.push('| `hotfix/*` | `main` | `main` | Critical fixes for production |');
+          guidance.push('| `release/*` | `develop` | `main` | Release preparation |');
+          guidance.push('');
+          guidance.push('### Commit Message Format');
+          guidance.push('');
+          guidance.push('Please use [Conventional Commits](https://conventionalcommits.org/):');
+          guidance.push('- `feat: add new feature` → Minor version bump');
+          guidance.push('- `fix: resolve bug` → Patch version bump');
+          guidance.push('- `feat!: breaking change` → Major version bump');
+          
+          // Post comment if validation failed or provide guidance
+          if (!isValid || guidance.length > 0) {
+            const commentBody = [
+              isValid ? '✅ **Branch validation passed**' : '❌ **Branch validation failed**',
+              '',
+              ...guidance
+            ].join('\n');
+            
+            try {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: commentBody
+              });
+              console.log('✅ Comment posted successfully');
+            } catch (error) {
+              console.log('⚠️ Could not post comment:', error.message);
+              console.log('This is likely due to insufficient permissions, but validation continues...');
+            }
+          }
+          
+          if (!isValid) {
+            core.setFailed('Branch validation failed. Please check the targeting branch.');
+          }
+
+  # Hotfix validation for critical fixes
+  hotfix-validation:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request' && 
+      startsWith(github.head_ref, 'hotfix/') &&
+      github.base_ref == 'main'
+    continue-on-error: true
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Validate hotfix requirements
+      run: |
+        echo "🔍 Validating hotfix requirements..."
+        
+        # Extract hotfix version if specified in branch name
+        BRANCH_NAME="${{ github.head_ref }}"
+        VERSION=${BRANCH_NAME#hotfix/}
+        
+        echo "Hotfix branch: $BRANCH_NAME"
+        echo "Target version: $VERSION"
+        
+        # Check that hotfix contains minimal changes
+        CHANGED_FILES=$(git diff --name-only origin/main...HEAD | wc -l)
+        echo "📁 Files changed: $CHANGED_FILES"
+        
+        if [ $CHANGED_FILES -gt 10 ]; then
+          echo "⚠️  Warning: Large number of files changed ($CHANGED_FILES). Hotfixes should be minimal."
+        fi
+        
+        # Check for commit message patterns
+        COMMITS=$(git log --oneline origin/main..HEAD)
+        echo "📝 Commits in hotfix:"
+        echo "$COMMITS"
+        
+        # Validate version format if provided
+        if [[ $VERSION =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "✅ Valid version format: $VERSION"
+        else
+          echo "⚠️  Version format '$VERSION' - should follow semantic versioning (e.g., 1.2.3)"
+        fi
+        
+        echo "✅ Hotfix validation completed"
+    
+    - name: Add hotfix guidance comment
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const prNumber = context.payload.pull_request.number;
+          const branchName = context.payload.pull_request.head.ref;
+          
+          const commentBody = `🚨 **Hotfix Workflow Detected**
+          
+          This is a hotfix PR targeting \`main\`. Please ensure:
+          
+          **Before Merging:**
+          - [ ] Changes are minimal and critical
+          - [ ] All tests pass
+          - [ ] Manual testing completed
+          - [ ] Documentation updated if needed
+          
+          **After Merging:**
+          - The hotfix will trigger an automatic patch release
+          - Changes will be automatically merged back to \`develop\`
+          - A Docker build will be triggered
+          
+          **Branch:** \`${branchName}\`
+          **Type:** Critical Production Fix
+          **Auto-merge to develop:** ✅ Yes`;
+          
+          try {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: commentBody
+            });
+            console.log('✅ Hotfix guidance comment posted successfully');
+          } catch (error) {
+            console.log('⚠️ Could not post hotfix guidance comment:', error.message);
+            console.log('This is likely due to insufficient permissions, but workflow continues...');
+          }

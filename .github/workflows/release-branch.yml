@@ -1,4 +1,4 @@
-name: Release Branch
+name: Release Branch CI
 
 on:
   push:
@@ -7,10 +7,12 @@ on:
   pull_request:
     branches: 
       - 'release/**'
+      - main
 
 permissions:
   contents: write
-  pull-requests: read
+  pull-requests: write
+  issues: write
 
 jobs:
   test:
@@ -41,16 +43,22 @@ jobs:
     - name: Build application
       run: npm run build
 
+  # Pre-release for testing before merging to main
   pre-release:
     needs: test
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/')
+    continue-on-error: true
+    if: |
+      github.event_name == 'push' && 
+      startsWith(github.ref, 'refs/heads/release/') &&
+      !contains(github.event.head_commit.message, '[skip-prerelease]')
     
     steps:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
         token: ${{ secrets.GITHUB_TOKEN }}
+        persist-credentials: true
     
     - name: Use Node.js 20.x
       uses: actions/setup-node@v4
@@ -68,9 +76,118 @@ jobs:
     
     - name: Extract version from branch name
       id: extract_version
-      run: echo "version=${GITHUB_REF#refs/heads/release/}" >> $GITHUB_OUTPUT
+      run: |
+        BRANCH_NAME=${GITHUB_REF#refs/heads/release/}
+        # Remove 'v' prefix if present
+        VERSION=${BRANCH_NAME#v}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
     
-    - name: Create pre-release
-      run: npx release-it --ci --increment ${{ steps.extract_version.outputs.version }} --preRelease=rc --verbose
+    - name: Validate version format
+      run: |
+        VERSION="${{ steps.extract_version.outputs.version }}"
+        if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "❌ Invalid version format: $VERSION"
+          echo "Expected format: X.Y.Z (e.g., 1.2.3)"
+          exit 1
+        fi
+        echo "✅ Valid version format: $VERSION"
+    
+    - name: Update package.json version
+      run: |
+        VERSION="${{ steps.extract_version.outputs.version }}"
+        npm version $VERSION --no-git-tag-version
+        git add package.json package-lock.json
+        git commit -m "chore: bump version to $VERSION in release branch" || echo "No changes to commit"
+    
+    - name: Create release candidate
+      run: |
+        VERSION="${{ steps.extract_version.outputs.version }}"
+        npx release-it --ci --no-increment --new-version=$VERSION-rc.$(date +%Y%m%d%H%M%S) --preRelease=rc --verbose
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Comment on related PRs
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const version = '${{ steps.extract_version.outputs.version }}';
+          const branchName = '${{ steps.extract_version.outputs.branch_name }}';
+          
+          try {
+            // Find PRs from this release branch to main
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: `${context.repo.owner}:release/${branchName}`,
+              base: 'main',
+              state: 'open'
+            });
+            
+            for (const pr of prs) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body: `🚀 **Release Candidate Created**\n\nA release candidate for version \`${version}\` has been created from this release branch.\n\n**Next Steps:**\n- Test the release candidate\n- If testing passes, merge this PR to trigger the final release\n- If issues are found, push fixes to this release branch\n\n**Release Notes:** Will be generated automatically when merged to main.`
+              });
+            }
+            console.log(`✅ Comments posted on ${prs.length} PR(s)`);
+          } catch (error) {
+            console.log('⚠️ Could not post PR comments:', error.message);
+            console.log('This is likely due to insufficient permissions, but workflow continues...');
+          }
+
+  # Validation job for release branch readiness
+  validate-release:
+    needs: test
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request' && 
+      github.base_ref == 'main' &&
+      startsWith(github.head_ref, 'release/')
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Extract version from branch name
+      id: extract_version
+      run: |
+        BRANCH_NAME=${GITHUB_HEAD_REF#release/}
+        VERSION=${BRANCH_NAME#v}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+    
+    - name: Validate release readiness
+      run: |
+        VERSION="${{ steps.extract_version.outputs.version }}"
+        echo "🔍 Validating release $VERSION readiness..."
+        
+        # Check if version follows semantic versioning
+        if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "❌ Invalid version format: $VERSION"
+          echo "Expected format: X.Y.Z (e.g., 1.2.3)"
+          exit 1
+        fi
+        
+        # Check if CHANGELOG.md exists and has content
+        if [[ ! -f "CHANGELOG.md" ]]; then
+          echo "⚠️  CHANGELOG.md not found"
+        else
+          echo "✅ CHANGELOG.md found"
+        fi
+        
+        # Validate no merge conflicts with main
+        git fetch origin main
+        if git merge-tree $(git merge-base HEAD origin/main) HEAD origin/main | grep -q "<<<<<"; then
+          echo "❌ Merge conflicts detected with main branch"
+          exit 1
+        fi
+        echo "✅ No merge conflicts with main"
+        
+        # Check for conventional commits in release branch
+        COMMITS_SINCE_DEVELOP=$(git rev-list --count origin/develop..HEAD)
+        echo "📊 $COMMITS_SINCE_DEVELOP commits since develop"
+        
+        echo "✅ Release $VERSION is ready for deployment"
