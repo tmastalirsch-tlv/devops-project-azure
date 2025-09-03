@@ -77,7 +77,7 @@ stages:
         deploy:
           steps:
           - task: AzureWebApp@1
-            displayName: "Deploy ZIP to Azure Web App"
+            displayName: "Deploy Zip to Azure Web App"
             inputs:
               azureSubscription: 'azure-sp-connection'
               appName: '$(appName)'
