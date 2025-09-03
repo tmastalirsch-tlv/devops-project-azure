@@ -19,12 +19,11 @@
     "@release-it/conventional-changelog": {
       "preset": "conventionalcommits",
       "infile": "CHANGELOG.md",
-      "header": "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n"
+      "header": "# Changelog\\n\\nAll notable changes to this project will be documented in this file.\\n\\n"
     }
   },
   "hooks": {
     "before:init": ["npm run lint", "npm test"],
-    "after:bump": "npm run build",
-    "after:release": "echo Successfully released ${name} v${version} to ${repo.repository}"
+    "after:bump": "npm run build"
   }
 }
