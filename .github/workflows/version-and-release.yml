@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: write
+  pull-requests: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -45,6 +49,7 @@ jobs:
       with:
         fetch-depth: 0
         token: ${{ secrets.GITHUB_TOKEN }}
+        persist-credentials: true
     
     - name: Use Node.js 20.x
       uses: actions/setup-node@v4
