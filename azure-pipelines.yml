@@ -79,6 +79,6 @@ stages:
           - task: AzureWebApp@1
             displayName: "Deploy ZIP to Azure Web App"
             inputs:
-              azureSubscription: 'YOUR_EXISTING_SERVICE_CONNECTION_NAME'
+              azureSubscription: 'azure-sp-connection'
               appName: '$(appName)'
               package: '$(Pipeline.Workspace)/drop/app.zip'
