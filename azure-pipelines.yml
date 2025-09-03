@@ -45,6 +45,7 @@ stages:
           dist/**
           node_modules/**/*
           package.json
+          web.config
         TargetFolder: '$(Build.ArtifactStagingDirectory)/site'
 
     - task: ArchiveFiles@2
