@@ -52,3 +52,10 @@ jobs:
     
     - name: Image digest
       run: 'echo "Image pushed with digest: ${{ steps.build.outputs.digest }}"'
+    
+    - name: Trigger Azure Deployment
+      uses: peter-evans/repository-dispatch@v3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        event-type: docker-deployed
+        client-payload: '{"image": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.client_payload.version }}", "version": "${{ github.event.client_payload.version }}"}'

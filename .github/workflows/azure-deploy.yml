@@ -1,0 +1,60 @@
+name: Deploy to Azure Web App
+
+on:
+  repository_dispatch:
+    types: [docker-deployed]
+  workflow_run:
+    workflows: ["Docker Build and Push"]
+    types:
+      - completed
+
+env:
+  AZURE_WEBAPP_NAME: app-hello-nest-tlv-devops
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'repository_dispatch' }}
+    
+    steps:
+    - name: Get latest release version
+      id: version
+      run: |
+        LATEST_VERSION=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r '.tag_name')
+        echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+        echo "Latest version: $LATEST_VERSION"
+    
+    - name: Login to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Deploy to Azure Web App
+      uses: azure/CLI@v1
+      with:
+        inlineScript: |
+          # Configure the web app to use container
+          az webapp config container set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group app-hello-nest-tlv-devops_group \
+            --docker-custom-image-name ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} \
+            --docker-registry-server-url https://${{ env.REGISTRY }}
+          
+          # Set application settings for container
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group app-hello-nest-tlv-devops_group \
+            --settings \
+              WEBSITES_ENABLE_APP_SERVICE_STORAGE=false \
+              WEBSITES_PORT=3000 \
+              DOCKER_REGISTRY_SERVER_URL=https://${{ env.REGISTRY }} \
+              DOCKER_CUSTOM_IMAGE_NAME=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+          
+          # Restart web app to pull new image
+          az webapp restart --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group rg-tlv-devops
+          
+          echo "Deployment completed!"
+          echo "App URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+          echo "Docker Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}"
