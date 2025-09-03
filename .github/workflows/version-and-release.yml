@@ -1,0 +1,106 @@
+name: Version and Release
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [20.x]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run linter
+      run: npm run lint
+    
+    - name: Run tests
+      run: npm test
+    
+    - name: Run build
+      run: npm run build
+
+  version-and-release:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    outputs:
+      new_release_published: ${{ steps.release.outputs.released }}
+      new_release_version: ${{ steps.release.outputs.version }}
+      
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Configure Git
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Release
+      id: release
+      run: |
+        # Get the tag before release
+        BEFORE_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        
+        # Run release-it in CI mode with semantic versioning
+        npx release-it --ci
+        
+        # Get the tag after release
+        AFTER_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        
+        # Check if a new release was made
+        if [ "$BEFORE_TAG" != "$AFTER_TAG" ] && [ -n "$AFTER_TAG" ]; then
+          echo "released=true" >> $GITHUB_OUTPUT
+          echo "version=${AFTER_TAG#v}" >> $GITHUB_OUTPUT
+          echo "✅ Released: $AFTER_TAG"
+        else
+          echo "released=false" >> $GITHUB_OUTPUT
+          echo "ℹ️ No release created (no conventional commits found)"
+        fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  trigger-docker-build:
+    needs: version-and-release
+    runs-on: ubuntu-latest
+    if: needs.version-and-release.outputs.new_release_published == 'true'
+    
+    steps:
+    - name: Repository Dispatch
+      uses: peter-evans/repository-dispatch@v3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        event-type: new-release
+        client-payload: '{"version": "${{ needs.version-and-release.outputs.new_release_version }}"}'

@@ -13,7 +13,7 @@
 | `WEBSITE_RUN_FROM_PACKAGE` | `1` | Aus ZIP-Package laufen |
 | `WEBSITE_NODE_DEFAULT_VERSION` | `20.x` | Node.js Version |
 
-## Startup Command (optional):
+## Startup Command (ERFORDERLICH):
 ```
 npm run start:prod
 ```
@@ -22,3 +22,16 @@ npm run start:prod
 Falls Sie Linux statt Windows verwenden, setzen Sie:
 - **Startup Command**: `npm run start:prod`
 - **Stack**: Node 20 LTS
+
+## Debugging in Azure:
+1. **Gehen Sie zu**: App Service → Advanced Tools → Go
+2. **Kudu Console**: Debug → Console
+3. **Log-Dateien**: LogFiles/Application
+4. **Prozesse prüfen**: Process Explorer
+
+## Häufige Fehlerursachen:
+- ❌ Node.js Version nicht kompatibel (braucht >= 18)
+- ❌ Startup Command nicht gesetzt
+- ❌ PORT Environment Variable nicht richtig behandelt
+- ❌ Package.json fehlt im Deploy
+- ❌ npm install schlägt fehl (dependencies)
