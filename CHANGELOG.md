@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 
 
+## [0.2.6](https://github.com/tmastalirsch-tlv/devops-project-azure/compare/v0.2.5...v0.2.6) (2025-09-03)
+
 ## [0.2.5](https://github.com/tmastalirsch-tlv/devops-project-azure/compare/v0.2.2...v0.2.5) (2025-09-03)
 
 
