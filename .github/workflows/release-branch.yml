@@ -11,7 +11,7 @@ on:
 
 permissions:
   contents: write
-  pull-requests: read
+  pull-requests: write
   issues: write
 
 jobs:
@@ -47,6 +47,7 @@ jobs:
   pre-release:
     needs: test
     runs-on: ubuntu-latest
+    continue-on-error: true
     if: |
       github.event_name == 'push' && 
       startsWith(github.ref, 'refs/heads/release/') &&
@@ -113,22 +114,28 @@ jobs:
           const version = '${{ steps.extract_version.outputs.version }}';
           const branchName = '${{ steps.extract_version.outputs.branch_name }}';
           
-          // Find PRs from this release branch to main
-          const { data: prs } = await github.rest.pulls.list({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            head: `${context.repo.owner}:release/${branchName}`,
-            base: 'main',
-            state: 'open'
-          });
-          
-          for (const pr of prs) {
-            await github.rest.issues.createComment({
+          try {
+            // Find PRs from this release branch to main
+            const { data: prs } = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: pr.number,
-              body: `🚀 **Release Candidate Created**\n\nA release candidate for version \`${version}\` has been created from this release branch.\n\n**Next Steps:**\n- Test the release candidate\n- If testing passes, merge this PR to trigger the final release\n- If issues are found, push fixes to this release branch\n\n**Release Notes:** Will be generated automatically when merged to main.`
+              head: `${context.repo.owner}:release/${branchName}`,
+              base: 'main',
+              state: 'open'
             });
+            
+            for (const pr of prs) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body: `🚀 **Release Candidate Created**\n\nA release candidate for version \`${version}\` has been created from this release branch.\n\n**Next Steps:**\n- Test the release candidate\n- If testing passes, merge this PR to trigger the final release\n- If issues are found, push fixes to this release branch\n\n**Release Notes:** Will be generated automatically when merged to main.`
+              });
+            }
+            console.log(`✅ Comments posted on ${prs.length} PR(s)`);
+          } catch (error) {
+            console.log('⚠️ Could not post PR comments:', error.message);
+            console.log('This is likely due to insufficient permissions, but workflow continues...');
           }
 
   # Validation job for release branch readiness
