@@ -1,3 +1,13 @@
+# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n
+
+## [1.1.0](https://github.com/tmastalirsch-tlv/devops-project-azure/compare/v1.0.1...v1.1.0) (2025-09-03)
+
+
+### Bug Fixes
+
+* make workflow_dispatch automatic instead of manual choice ([41d8d45](https://github.com/tmastalirsch-tlv/devops-project-azure/commit/41d8d45b708331f5f0774c1f0a89748956e6e73c))
+* update release-it configuration to prevent debug error ([827e533](https://github.com/tmastalirsch-tlv/devops-project-azure/commit/827e53349b124a568c7a916511c4f83a8d85e0b6))
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
