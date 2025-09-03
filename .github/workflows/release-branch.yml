@@ -1,16 +1,16 @@
-name: Main Release
+name: Release Branch
 
 on:
   push:
-    branches: [ main ]
+    branches: 
+      - 'release/**'
   pull_request:
-    branches: [ main ]
+    branches: 
+      - 'release/**'
 
 permissions:
   contents: write
   pull-requests: read
-  issues: write
-  repository-projects: write
 
 jobs:
   test:
@@ -41,17 +41,16 @@ jobs:
     - name: Build application
       run: npm run build
 
-  release:
+  pre-release:
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/')
     
     steps:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
         token: ${{ secrets.GITHUB_TOKEN }}
-        persist-credentials: true
     
     - name: Use Node.js 20.x
       uses: actions/setup-node@v4
@@ -67,18 +66,11 @@ jobs:
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
     
-    - name: Release with release-it
-      run: npx release-it --ci --increment patch --verbose
+    - name: Extract version from branch name
+      id: extract_version
+      run: echo "version=${GITHUB_REF#refs/heads/release/}" >> $GITHUB_OUTPUT
+    
+    - name: Create pre-release
+      run: npx release-it --ci --increment ${{ steps.extract_version.outputs.version }} --preRelease=rc --verbose
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Get version
-      id: version
-      run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-    
-    - name: Trigger Docker Build
-      uses: peter-evans/repository-dispatch@v3
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        event-type: docker-build
-        client-payload: '{"version": "${{ steps.version.outputs.version }}"}'

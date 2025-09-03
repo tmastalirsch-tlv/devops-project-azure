@@ -1,0 +1,23 @@
+# Git Flow Configuration
+# This file defines the branch naming conventions for git-flow
+
+[gitflow "branch"]
+    master = main
+    develop = develop
+
+[gitflow "prefix"]
+    feature = feature/
+    bugfix = bugfix/
+    release = release/
+    hotfix = hotfix/
+    support = support/
+    versiontag = v
+
+[gitflow "hotfix"]
+    finish-no-ff = true
+
+[gitflow "release"]
+    finish-no-ff = true
+
+[gitflow "feature"]
+    finish-no-ff = true
