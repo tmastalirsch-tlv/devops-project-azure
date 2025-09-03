@@ -5,7 +5,7 @@ trigger:
 
 variables:
   nodeVersion: '20.x'
-  appName: 'app-hello-nest-tlv-devops'  # <-- hier deinen Web App Namen eintragen
+  appName: 'app-hello-nest-tlv-devops'
   vmImage: 'ubuntu-latest'
 
 pool:
@@ -79,6 +79,6 @@ stages:
           - task: AzureWebApp@1
             displayName: "Deploy ZIP to Azure Web App"
             inputs:
-              azureSubscription: 'azure-sp-connection'
+              azureSubscription: 'YOUR_EXISTING_SERVICE_CONNECTION_NAME'
               appName: '$(appName)'
               package: '$(Pipeline.Workspace)/drop/app.zip'
