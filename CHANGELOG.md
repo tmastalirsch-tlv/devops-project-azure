@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 
 
+## [1.0.0](https://github.com/tmastalirsch-tlv/devops-project-azure/compare/v0.2.9...v1.0.0) (2025-09-03)
+
+
+### Features
+
+* enhance CI workflows for feature, release, and hotfix branches ([f8783f4](https://github.com/tmastalirsch-tlv/devops-project-azure/commit/f8783f4a540294dcc6156737f90dedd87057dd11))
+
+
+### Bug Fixes
+
+* update CI workflows to improve error handling and permissions ([36f2d6d](https://github.com/tmastalirsch-tlv/devops-project-azure/commit/36f2d6dc9f469de36d6f41a33024190d017dd48d))
+
 ## [0.2.9](https://github.com/tmastalirsch-tlv/devops-project-azure/compare/v0.2.8...v0.2.9) (2025-09-03)
 
 
