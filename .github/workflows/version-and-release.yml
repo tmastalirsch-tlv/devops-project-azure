@@ -78,20 +78,27 @@ jobs:
         
         # Run release-it in CI mode with semantic versioning
         echo "Running release-it..."
+        set +e  # Don't exit on error
         npx release-it --ci --verbose
+        RELEASE_EXIT_CODE=$?
+        set -e  # Re-enable exit on error
         
         # Get the tag after release
         AFTER_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
         echo "After release tag: $AFTER_TAG"
         
         # Check if a new release was made
-        if [ "$BEFORE_TAG" != "$AFTER_TAG" ] && [ -n "$AFTER_TAG" ]; then
+        if [ $RELEASE_EXIT_CODE -eq 0 ] && [ "$BEFORE_TAG" != "$AFTER_TAG" ] && [ -n "$AFTER_TAG" ]; then
           echo "released=true" >> $GITHUB_OUTPUT
           echo "version=${AFTER_TAG#v}" >> $GITHUB_OUTPUT
           echo "✅ Released: $AFTER_TAG"
         else
           echo "released=false" >> $GITHUB_OUTPUT
-          echo "ℹ️ No release created (no conventional commits found or release failed)"
+          if [ $RELEASE_EXIT_CODE -ne 0 ]; then
+            echo "⚠️ Release-it exited with code $RELEASE_EXIT_CODE"
+          else
+            echo "ℹ️ No release created (no conventional commits found)"
+          fi
         fi
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

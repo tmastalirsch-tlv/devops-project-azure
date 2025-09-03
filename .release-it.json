@@ -6,7 +6,9 @@
     "commit": true,
     "tag": true,
     "requireCleanWorkingDir": false,
-    "requireUpstream": false
+    "requireUpstream": false,
+    "tagExclude": null,
+    "tagMatch": null
   },
   "github": {
     "release": true,
