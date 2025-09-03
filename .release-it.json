@@ -5,12 +5,13 @@
     "push": true,
     "commit": true,
     "tag": true,
-    "requireCleanWorkingDir": false
+    "requireCleanWorkingDir": false,
+    "requireUpstream": false
   },
   "github": {
     "release": true,
     "releaseName": "Release v${version}",
-    "releaseNotes": "npx conventional-changelog -p angular -i CHANGELOG.md -s -r 0"
+    "releaseNotes": null
   },
   "npm": {
     "publish": false

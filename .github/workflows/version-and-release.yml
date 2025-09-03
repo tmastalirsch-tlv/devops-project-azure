@@ -67,18 +67,22 @@ jobs:
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git config --global init.defaultBranch main
 
     - name: Release
       id: release
       run: |
         # Get the tag before release
         BEFORE_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        echo "Before release tag: $BEFORE_TAG"
         
         # Run release-it in CI mode with semantic versioning
-        npx release-it --ci
+        echo "Running release-it..."
+        npx release-it --ci --verbose
         
         # Get the tag after release
         AFTER_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        echo "After release tag: $AFTER_TAG"
         
         # Check if a new release was made
         if [ "$BEFORE_TAG" != "$AFTER_TAG" ] && [ -n "$AFTER_TAG" ]; then
@@ -87,10 +91,11 @@ jobs:
           echo "✅ Released: $AFTER_TAG"
         else
           echo "released=false" >> $GITHUB_OUTPUT
-          echo "ℹ️ No release created (no conventional commits found)"
+          echo "ℹ️ No release created (no conventional commits found or release failed)"
         fi
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   trigger-docker-build:
     needs: version-and-release
