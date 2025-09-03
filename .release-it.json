@@ -10,7 +10,8 @@
   },
   "github": {
     "release": true,
-    "releaseName": "Release v${version}"
+    "releaseName": "Release v${version}",
+    "tokenRef": "GITHUB_TOKEN"
   },
   "npm": {
     "publish": false
@@ -19,11 +20,7 @@
     "@release-it/conventional-changelog": {
       "preset": "conventionalcommits",
       "infile": "CHANGELOG.md",
-      "header": "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n",
-      "context": {
-        "linkCompare": true,
-        "linkReferences": true
-      }
+      "header": "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n"
     }
   },
   "hooks": {
